@@ -29,10 +29,6 @@ export type OrderStatus = 'pending' | 'completed' | 'cancelled';
 export interface Order {
   id: string;
   customerName: string;
-  contactNumber?: string;
-  email?: string;
-  address?: string;
-  notes?: string;
   recipeId: string;
   recipeName: string;
   quantity: number;

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Plus, Trash2, Calculator as CalcIcon, Cookie, Coins, Scale, Info, Save, FolderOpen, FilePlus, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Ingredient, Overhead, SavedRecipe } from '../types';
@@ -22,61 +22,54 @@ export default function Calculator() {
   const [overheads, setOverheads] = useState<Overhead[]>([]);
   const [batchSize, setBatchSize] = useState<number>(12);
   const [sellingPrice, setSellingPrice] = useState<number>(0);
-  const [savedRecipes, setSavedRecipes] = useState<SavedRecipe[]>([]);
+  const [savedRecipes, setSavedRecipes] = useState<SavedRecipe[]>(() => {
+    const saved = localStorage.getItem('ellie_cookies_recipes');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [showSaved, setShowSaved] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchRecipes();
-  }, []);
-
-  const fetchRecipes = async () => {
-    try {
-      const res = await fetch('/api/recipes');
-      const data = await res.json();
-      setSavedRecipes(data);
-    } catch (err) {
-      console.error('Failed to fetch recipes:', err);
-    }
-  };
 
   const showToast = (message: string) => {
     setNotification(message);
     setTimeout(() => setNotification(null), 3000);
   };
 
-  const saveRecipe = async () => {
+  const saveRecipe = () => {
     if (!recipeName.trim()) {
       showToast('Please enter a recipe name');
       return;
     }
 
-    const recipe: SavedRecipe = {
-      id: currentRecipeId || crypto.randomUUID(),
-      name: recipeName,
-      ingredients,
-      overheads,
-      batchSize,
-      sellingPrice,
-      date: new Date().toLocaleDateString(),
-    };
-
-    try {
-      const res = await fetch('/api/recipes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(recipe),
-      });
-      
-      if (res.ok) {
-        showToast(currentRecipeId ? `Recipe "${recipeName}" updated!` : `Recipe "${recipeName}" saved!`);
-        fetchRecipes();
-        resetForm();
-      }
-    } catch (err) {
-      console.error('Failed to save recipe:', err);
-      showToast('Error saving recipe');
+    let updatedRecipes: SavedRecipe[];
+    
+    if (currentRecipeId) {
+      // Update existing
+      updatedRecipes = savedRecipes.map(r => 
+        r.id === currentRecipeId 
+          ? { ...r, name: recipeName, ingredients, overheads, batchSize, sellingPrice, date: new Date().toLocaleDateString() }
+          : r
+      );
+      showToast(`Recipe "${recipeName}" updated!`);
+    } else {
+      // Create new
+      const newRecipe: SavedRecipe = {
+        id: crypto.randomUUID(),
+        name: recipeName,
+        ingredients,
+        overheads,
+        batchSize,
+        sellingPrice,
+        date: new Date().toLocaleDateString(),
+      };
+      updatedRecipes = [newRecipe, ...savedRecipes];
+      showToast(`Recipe "${recipeName}" saved!`);
     }
+
+    setSavedRecipes(updatedRecipes);
+    localStorage.setItem('ellie_cookies_recipes', JSON.stringify(updatedRecipes));
+    
+    // Reset screen after saving
+    resetForm();
   };
 
   const loadRecipe = (recipe: SavedRecipe) => {
@@ -89,19 +82,13 @@ export default function Calculator() {
     setShowSaved(false);
   };
 
-  const deleteSavedRecipe = async (id: string, e: React.MouseEvent) => {
+  const deleteSavedRecipe = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    try {
-      const res = await fetch(`/api/recipes/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        setSavedRecipes(savedRecipes.filter(r => r.id !== id));
-        if (currentRecipeId === id) {
-          resetForm();
-        }
-        showToast('Recipe deleted');
-      }
-    } catch (err) {
-      console.error('Failed to delete recipe:', err);
+    const updated = savedRecipes.filter(r => r.id !== id);
+    setSavedRecipes(updated);
+    localStorage.setItem('ellie_cookies_recipes', JSON.stringify(updated));
+    if (currentRecipeId === id) {
+      resetForm();
     }
   };
 

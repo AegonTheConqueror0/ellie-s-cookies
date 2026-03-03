@@ -1,23 +1,12 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Calculator, LayoutDashboard, ShoppingBag, Cookie, Share2 } from 'lucide-react';
+import { Calculator, LayoutDashboard, ShoppingBag, Cookie } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
 export default function Layout({ children }: LayoutProps) {
-  const copyCustomerLink = () => {
-    // Prefer the environment's APP_URL if available, otherwise use current origin
-    const baseUrl = (process.env.APP_URL && process.env.APP_URL !== 'undefined') 
-      ? process.env.APP_URL 
-      : window.location.origin;
-    
-    const url = baseUrl.replace(/\/$/, '') + '/order';
-    navigator.clipboard.writeText(url);
-    alert(`Customer order link copied!\n\nURL: ${url}\n\nThis link will work for anyone with internet access.`);
-  };
-
   return (
     <div className="flex min-h-screen bg-[#f5f5f5] text-slate-900 font-sans">
       {/* Sidebar */}
@@ -73,14 +62,7 @@ export default function Layout({ children }: LayoutProps) {
           </NavLink>
         </nav>
         
-        <div className="p-4 border-t border-slate-100 space-y-3">
-          <button
-            onClick={copyCustomerLink}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all font-medium text-sm"
-          >
-            <Share2 className="w-4 h-4" />
-            Copy Customer Link
-          </button>
+        <div className="p-4 border-t border-slate-100">
           <div className="bg-slate-900 p-4 rounded-2xl text-white overflow-hidden relative">
             <div className="relative z-10">
               <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">Status</p>
