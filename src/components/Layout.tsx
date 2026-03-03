@@ -8,9 +8,14 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const copyCustomerLink = () => {
-    const url = window.location.origin + '/order';
+    // Prefer the environment's APP_URL if available, otherwise use current origin
+    const baseUrl = (process.env.APP_URL && process.env.APP_URL !== 'undefined') 
+      ? process.env.APP_URL 
+      : window.location.origin;
+    
+    const url = baseUrl.replace(/\/$/, '') + '/order';
     navigator.clipboard.writeText(url);
-    alert('Customer order link copied to clipboard!');
+    alert(`Customer order link copied!\n\nURL: ${url}\n\nThis link will work for anyone with internet access.`);
   };
 
   return (

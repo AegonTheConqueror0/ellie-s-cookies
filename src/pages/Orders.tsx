@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, ShoppingBag, User, Calendar, CheckCircle2, Clock, XCircle, Search, Cookie, Phone, Mail, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { io } from 'socket.io-client';
 import { Order, OrderStatus, SavedRecipe } from '../types';
 
 export default function Orders() {
@@ -22,6 +23,26 @@ export default function Orders() {
 
   useEffect(() => {
     fetchData();
+
+    // Setup real-time updates
+    const socket = io();
+    
+    socket.on('order:created', () => {
+      fetchData();
+      showToast('New order received! 🍪');
+    });
+
+    socket.on('order:updated', () => {
+      fetchData();
+    });
+
+    socket.on('order:deleted', () => {
+      fetchData();
+    });
+
+    return () => {
+      socket.disconnect();
+    };
   }, []);
 
   const fetchData = async () => {

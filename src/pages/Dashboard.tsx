@@ -1,32 +1,45 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import { LayoutDashboard, TrendingUp, DollarSign, ShoppingBag, ArrowUpRight, ArrowDownRight, Cookie } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { format, parseISO, subDays, isSameDay } from 'date-fns';
+import { io } from 'socket.io-client';
 import { Order, SavedRecipe } from '../types';
 
 export default function Dashboard() {
-  const [orders, setOrders] = React.useState<Order[]>([]);
-  const [recipes, setRecipes] = React.useState<SavedRecipe[]>([]);
-  const [loading, setLoading] = React.useState(true);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [recipes, setRecipes] = useState<SavedRecipe[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  React.useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [ordersRes, recipesRes] = await Promise.all([
-          fetch('/api/orders'),
-          fetch('/api/recipes')
-        ]);
-        const ordersData = await ordersRes.json();
-        const recipesData = await recipesRes.json();
-        setOrders(ordersData);
-        setRecipes(recipesData);
-      } catch (err) {
-        console.error('Failed to fetch data:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchData = async () => {
+    try {
+      const [ordersRes, recipesRes] = await Promise.all([
+        fetch('/api/orders'),
+        fetch('/api/recipes')
+      ]);
+      const ordersData = await ordersRes.json();
+      const recipesData = await recipesRes.json();
+      setOrders(ordersData);
+      setRecipes(recipesData);
+    } catch (err) {
+      console.error('Failed to fetch data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchData();
+
+    // Setup real-time updates
+    const socket = io();
+    
+    socket.on('order:created', fetchData);
+    socket.on('order:updated', fetchData);
+    socket.on('order:deleted', fetchData);
+
+    return () => {
+      socket.disconnect();
+    };
   }, []);
 
   const stats = useMemo(() => {

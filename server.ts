@@ -1,5 +1,7 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
+import { createServer } from "http";
+import { Server } from "socket.io";
 import Database from "better-sqlite3";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -37,9 +39,16 @@ db.exec(`
 
 async function startServer() {
   const app = express();
+  const httpServer = createServer(app);
+  const io = new Server(httpServer);
   const PORT = 3000;
 
   app.use(express.json());
+
+  // Socket.io connection
+  io.on("connection", (socket) => {
+    console.log("Client connected:", socket.id);
+  });
 
   // API Routes
   app.get("/api/recipes", (req, res) => {
@@ -77,8 +86,9 @@ async function startServer() {
         recipeId, recipeName, quantity, totalPrice, status, orderDate, deliveryDate
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
+    const id = order.id || crypto.randomUUID();
     stmt.run(
-      order.id || crypto.randomUUID(),
+      id,
       order.customerName,
       order.contactNumber || null,
       order.email || null,
@@ -92,17 +102,29 @@ async function startServer() {
       order.orderDate || new Date().toISOString().split('T')[0],
       order.deliveryDate || null
     );
+    
+    // Emit event for real-time update
+    io.emit("order:created", { id });
+    
     res.json({ success: true });
   });
 
   app.patch("/api/orders/:id", (req, res) => {
     const { status } = req.body;
     db.prepare("UPDATE orders SET status = ? WHERE id = ?").run(status, req.params.id);
+    
+    // Emit event for status update
+    io.emit("order:updated", { id: req.params.id, status });
+    
     res.json({ success: true });
   });
 
   app.delete("/api/orders/:id", (req, res) => {
     db.prepare("DELETE FROM orders WHERE id = ?").run(req.params.id);
+    
+    // Emit event for deletion
+    io.emit("order:deleted", { id: req.params.id });
+    
     res.json({ success: true });
   });
 
@@ -120,7 +142,7 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  httpServer.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }
