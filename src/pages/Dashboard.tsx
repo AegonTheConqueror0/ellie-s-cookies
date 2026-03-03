@@ -5,14 +5,28 @@ import { format, parseISO, subDays, isSameDay } from 'date-fns';
 import { Order, SavedRecipe } from '../types';
 
 export default function Dashboard() {
-  const orders: Order[] = useMemo(() => {
-    const saved = localStorage.getItem('ellie_cookies_orders');
-    return saved ? JSON.parse(saved) : [];
-  }, []);
+  const [orders, setOrders] = React.useState<Order[]>([]);
+  const [recipes, setRecipes] = React.useState<SavedRecipe[]>([]);
+  const [loading, setLoading] = React.useState(true);
 
-  const recipes: SavedRecipe[] = useMemo(() => {
-    const saved = localStorage.getItem('ellie_cookies_recipes');
-    return saved ? JSON.parse(saved) : [];
+  React.useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [ordersRes, recipesRes] = await Promise.all([
+          fetch('/api/orders'),
+          fetch('/api/recipes')
+        ]);
+        const ordersData = await ordersRes.json();
+        const recipesData = await recipesRes.json();
+        setOrders(ordersData);
+        setRecipes(recipesData);
+      } catch (err) {
+        console.error('Failed to fetch data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
   }, []);
 
   const stats = useMemo(() => {

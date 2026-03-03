@@ -1,17 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, ShoppingBag, User, Calendar, CheckCircle2, Clock, XCircle, Search, Cookie } from 'lucide-react';
+import { Plus, Trash2, ShoppingBag, User, Calendar, CheckCircle2, Clock, XCircle, Search, Cookie, Phone, Mail, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Order, OrderStatus, SavedRecipe } from '../types';
 
 export default function Orders() {
-  const [orders, setOrders] = useState<Order[]>(() => {
-    const saved = localStorage.getItem('ellie_cookies_orders');
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [recipes, setRecipes] = useState<SavedRecipe[]>(() => {
-    const saved = localStorage.getItem('ellie_cookies_recipes');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [recipes, setRecipes] = useState<SavedRecipe[]>([]);
   
   const [showAddOrder, setShowAddOrder] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -27,15 +21,30 @@ export default function Orders() {
   });
 
   useEffect(() => {
-    localStorage.setItem('ellie_cookies_orders', JSON.stringify(orders));
-  }, [orders]);
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      const [ordersRes, recipesRes] = await Promise.all([
+        fetch('/api/orders'),
+        fetch('/api/recipes')
+      ]);
+      const ordersData = await ordersRes.json();
+      const recipesData = await recipesRes.json();
+      setOrders(ordersData);
+      setRecipes(recipesData);
+    } catch (err) {
+      console.error('Failed to fetch data:', err);
+    }
+  };
 
   const showToast = (message: string) => {
     setNotification(message);
     setTimeout(() => setNotification(null), 3000);
   };
 
-  const handleAddOrder = (e: React.FormEvent) => {
+  const handleAddOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newOrder.customerName || !newOrder.recipeId) {
       showToast('Please fill in all required fields');
@@ -45,7 +54,7 @@ export default function Orders() {
     const selectedRecipe = recipes.find(r => r.id === newOrder.recipeId);
     if (!selectedRecipe) return;
 
-    const order: Order = {
+    const order: Partial<Order> = {
       id: crypto.randomUUID(),
       customerName: newOrder.customerName!,
       recipeId: newOrder.recipeId!,
@@ -57,26 +66,55 @@ export default function Orders() {
       deliveryDate: newOrder.deliveryDate,
     };
 
-    setOrders([order, ...orders]);
-    setShowAddOrder(false);
-    setNewOrder({
-      customerName: '',
-      recipeId: '',
-      quantity: 1,
-      status: 'pending',
-      orderDate: new Date().toISOString().split('T')[0],
-    });
-    showToast('Order added successfully!');
+    try {
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(order),
+      });
+      if (res.ok) {
+        fetchData();
+        setShowAddOrder(false);
+        setNewOrder({
+          customerName: '',
+          recipeId: '',
+          quantity: 1,
+          status: 'pending',
+          orderDate: new Date().toISOString().split('T')[0],
+        });
+        showToast('Order added successfully!');
+      }
+    } catch (err) {
+      console.error('Failed to add order:', err);
+    }
   };
 
-  const updateOrderStatus = (id: string, status: OrderStatus) => {
-    setOrders(orders.map(o => o.id === id ? { ...o, status } : o));
-    showToast(`Order marked as ${status}`);
+  const updateOrderStatus = async (id: string, status: OrderStatus) => {
+    try {
+      const res = await fetch(`/api/orders/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      if (res.ok) {
+        setOrders(orders.map(o => o.id === id ? { ...o, status } : o));
+        showToast(`Order marked as ${status}`);
+      }
+    } catch (err) {
+      console.error('Failed to update order:', err);
+    }
   };
 
-  const deleteOrder = (id: string) => {
-    setOrders(orders.filter(o => o.id !== id));
-    showToast('Order deleted');
+  const deleteOrder = async (id: string) => {
+    try {
+      const res = await fetch(`/api/orders/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setOrders(orders.filter(o => o.id !== id));
+        showToast('Order deleted');
+      }
+    } catch (err) {
+      console.error('Failed to delete order:', err);
+    }
   };
 
   const filteredOrders = orders.filter(o => 
@@ -177,6 +215,26 @@ export default function Orders() {
                     <span className="text-slate-300">•</span>
                     <span className="text-sm font-medium text-slate-500">Qty: {order.quantity}</span>
                   </div>
+                  {(order.contactNumber || order.email) && (
+                    <div className="flex flex-wrap gap-3 mt-2">
+                      {order.contactNumber && (
+                        <span className="text-xs text-slate-400 flex items-center gap-1">
+                          <Phone className="w-3 h-3" /> {order.contactNumber}
+                        </span>
+                      )}
+                      {order.email && (
+                        <span className="text-xs text-slate-400 flex items-center gap-1">
+                          <Mail className="w-3 h-3" /> {order.email}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {order.address && (
+                    <p className="text-xs text-slate-400 mt-1 flex items-start gap-1">
+                      <MapPin className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                      {order.address}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -326,6 +384,40 @@ export default function Orders() {
                       className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all"
                     />
                   </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Contact Number</label>
+                    <input
+                      type="tel"
+                      value={newOrder.contactNumber || ''}
+                      onChange={(e) => setNewOrder({ ...newOrder, contactNumber: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all"
+                      placeholder="09xx-xxx-xxxx"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Email</label>
+                    <input
+                      type="email"
+                      value={newOrder.email || ''}
+                      onChange={(e) => setNewOrder({ ...newOrder, email: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all"
+                      placeholder="customer@example.com"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Address</label>
+                  <textarea
+                    value={newOrder.address || ''}
+                    onChange={(e) => setNewOrder({ ...newOrder, address: e.target.value })}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all resize-none"
+                    placeholder="Delivery address..."
+                    rows={2}
+                  />
                 </div>
 
                 <div className="pt-4">
