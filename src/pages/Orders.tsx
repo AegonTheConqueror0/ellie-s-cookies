@@ -296,8 +296,11 @@ export default function Orders() {
                       type="number"
                       min="1"
                       required
-                      value={newOrder.quantity}
-                      onChange={(e) => setNewOrder({ ...newOrder, quantity: parseInt(e.target.value) || 1 })}
+                      value={newOrder.quantity === 0 ? '' : newOrder.quantity}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setNewOrder({ ...newOrder, quantity: val === '' ? 0 : parseInt(val) });
+                      }}
                       className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all"
                     />
                   </div>

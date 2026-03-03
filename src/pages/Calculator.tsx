@@ -230,8 +230,11 @@ export default function Calculator() {
               <div className="flex items-center gap-2">
                 <input
                   type="number"
-                  value={batchSize}
-                  onChange={(e) => setBatchSize(Math.max(1, parseInt(e.target.value) || 0))}
+                  value={batchSize === 0 ? '' : batchSize}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setBatchSize(val === '' ? 0 : parseInt(val));
+                  }}
                   className="w-16 text-2xl font-bold bg-transparent border-none focus:ring-0 p-0"
                 />
                 <span className="text-slate-400 font-medium">cookies</span>
